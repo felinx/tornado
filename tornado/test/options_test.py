@@ -1,8 +1,11 @@
-from __future__ import absolute_import, division, with_statement
+from __future__ import absolute_import, division, print_function, with_statement
 
+import datetime
+import os
 import sys
 
 from tornado.options import OptionParser, Error
+from tornado.util import basestring_type
 from tornado.test.util import unittest
 
 try:
@@ -18,6 +21,7 @@ except ImportError:
     except ImportError:
         mock = None
 
+
 class OptionsTest(unittest.TestCase):
     def test_parse_command_line(self):
         options = OptionParser()
@@ -25,9 +29,17 @@ class OptionsTest(unittest.TestCase):
         options.parse_command_line(["main.py", "--port=443"])
         self.assertEqual(options.port, 443)
 
+    def test_parse_config_file(self):
+        options = OptionParser()
+        options.define("port", default=80)
+        options.parse_config_file(os.path.join(os.path.dirname(__file__),
+                                               "options_test.cfg"))
+        self.assertEquals(options.port, 443)
+
     def test_parse_callbacks(self):
         options = OptionParser()
         self.called = False
+
         def callback():
             self.called = True
         options.add_parse_callback(callback)
@@ -122,3 +134,38 @@ class OptionsTest(unittest.TestCase):
                 self.assertEqual(options.foo, 6)
             self.assertEqual(options.foo, 5)
         self.assertEqual(options.foo, 2)
+
+    def test_types(self):
+        options = OptionParser()
+        options.define('str', type=str)
+        options.define('basestring', type=basestring_type)
+        options.define('int', type=int)
+        options.define('float', type=float)
+        options.define('datetime', type=datetime.datetime)
+        options.define('timedelta', type=datetime.timedelta)
+        options.parse_command_line(['main.py',
+                                    '--str=asdf',
+                                    '--basestring=qwer',
+                                    '--int=42',
+                                    '--float=1.5',
+                                    '--datetime=2013-04-28 05:16',
+                                    '--timedelta=45s'])
+        self.assertEqual(options.str, 'asdf')
+        self.assertEqual(options.basestring, 'qwer')
+        self.assertEqual(options.int, 42)
+        self.assertEqual(options.float, 1.5)
+        self.assertEqual(options.datetime,
+                         datetime.datetime(2013, 4, 28, 5, 16))
+        self.assertEqual(options.timedelta, datetime.timedelta(seconds=45))
+
+    def test_multiple_string(self):
+        options = OptionParser()
+        options.define('foo', type=str, multiple=True)
+        options.parse_command_line(['main.py', '--foo=a,b,c'])
+        self.assertEqual(options.foo, ['a', 'b', 'c'])
+
+    def test_multiple_int(self):
+        options = OptionParser()
+        options.define('foo', type=int, multiple=True)
+        options.parse_command_line(['main.py', '--foo=1,3,5:7'])
+        self.assertEqual(options.foo, [1, 3, 5, 6, 7])

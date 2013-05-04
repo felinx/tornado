@@ -328,7 +328,7 @@ class _Option(object):
         self._value = None
 
     def value(self):
-        return self.default if self._value is None else self._value
+        return self.parse(self.default) if self._value is None else self._value
 
     def parse(self, value):
         _parse = {
